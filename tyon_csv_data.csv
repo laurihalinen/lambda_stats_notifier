@@ -1,0 +1,7 @@
+playerName,kills,deaths,matches,wins,losses,win_rate,kd_ratio
+Player1,120,100,50,30,20,0.6,1.2
+Player2,150,120,60,40,20,0.67,1.25
+Player3,200,180,80,60,20,0.75,1.11
+Player4,80,90,40,25,15,0.625,0.89
+Player5,110,110,50,35,15,0.7,1.0
+Player6,135,110,70,50,20,0.71,1.23

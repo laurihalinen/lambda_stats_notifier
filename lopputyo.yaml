@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description:
+  'ICT-Infrastruktuuri pilvialustalla opintojakson lopputyön CloudFormation-koodi.
+  Tämä pystyttää palvelut lähes valmiiksi asti, ainut mikä pitää lisätä on S3 source bucketin Event Notification,
+  joka kommunikoi loader Lambda-funktion kanssa.'
+Resources:
+  # S3 source bucketti
+  S3Bucketlopputyo:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'bucket-lopputyo'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+
+  # Lambda-funktio, joka lisää S3 objectit DynamoDb tauluun
+  LambdaFunctionInventoryloader:
+    Type: 'AWS::Lambda::Function'
+    DependsOn: S3Bucketlopputyo # Varmistaa, että Lambda-funktio luodaan vasta kun S3-bucket on valmis
+    Properties:
+      MemorySize: 128
+      Timeout: 3
+      Handler: 'lambda_function.lambda_handler'
+      Role: 'arn:aws:iam::590183795888:role/LabRole'
+      FunctionName: 'inventory-loader'
+      Runtime: 'python3.13'
+      PackageType: 'Zip'
+      Code: #Hakee lambda koodit bucketista, jonka tein aiemmin
+        S3Bucket: 'loppytyo-lambda'
+        S3Key: 'loader.zip'
+      LoggingConfig:
+        LogGroup: '/aws/lambda/inventory-loader'
+      EphemeralStorage:
+        Size: 512
+      Architectures:
+        - 'x86_64'
+
+  # Lambda-funktio SNS-notifikaatioille
+  LambdaFunctionNotificationFunction:
+    Type: 'AWS::Lambda::Function'
+    DependsOn: S3Bucketlopputyo # Varmistaa, että Lambda-funktio luodaan vasta kun S3-bucket on valmis
+    Properties:
+      MemorySize: 128
+      Timeout: 3
+      Handler: 'lambda_function.lambda_handler'
+      Role: 'arn:aws:iam::590183795888:role/LabRole'
+      FunctionName: 'NotificationFunction'
+      Runtime: 'python3.13'
+      PackageType: 'Zip'
+      Code: #Hakee lambda koodit bucketista, jonka tein aiemmin
+        S3Bucket: 'loppytyo-lambda'
+        S3Key: 'notification.zip'
+      LoggingConfig:
+        LogGroup: '/aws/lambda/NotificationFunction'
+      EphemeralStorage:
+        Size: 512
+      Architectures:
+        - 'x86_64'
+
+  # S3 Bucket CloudWatch logeille
+  S3BucketLogsbucketlopputyo:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: 'logs-bucket-lopputyo'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+
+  # DynamoDB table
+  DynamoDBTablePlayerStats:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      TableName: 'PlayerStats'
+      BillingMode: 'PAY_PER_REQUEST'
+      KeySchema:
+        - KeyType: 'HASH'
+          AttributeName: 'playerName'
+      AttributeDefinitions:
+        - AttributeType: 'S'
+          AttributeName: 'playerName'
+
+  # SNS topic
+  SNSTopicTopPlayersTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      TopicName: 'TopPlayersTopic'
+      Subscription:
+        - Endpoint: '2ndlauri@gmail.com' #sähköposti tähän
+          Protocol: 'email'
